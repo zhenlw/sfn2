@@ -27,9 +27,15 @@
     <ClCompile Include="kbfiltr.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="sfn2_core.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="kbfiltr.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="sfn2kd.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -189,9 +189,11 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="kbfiltr.c" />
+    <ClCompile Include="sfn2_core.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="kbfiltr.h" />
+    <ClInclude Include="sfn2kd.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

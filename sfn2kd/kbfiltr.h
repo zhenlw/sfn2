@@ -36,7 +36,7 @@ Environment:
 #include <initguid.h>
 #include <devguid.h>
 
-#include "public.h"
+#include "sfn2kd.h"
 
 #define KBFILTER_POOL_TAG (ULONG) 'tlfK'
 
@@ -55,6 +55,7 @@ Environment:
 #endif
 
 #define MIN(_A_,_B_) (((_A_) < (_B_)) ? (_A_) : (_B_))
+
 
 typedef struct _DEVICE_EXTENSION
 {
@@ -76,31 +77,12 @@ typedef struct _DEVICE_EXTENSION
     CONNECT_DATA UpperConnectData;
 
     //
-    // Previous initialization and hook routines (and context)
-    //
-    PVOID UpperContext;
-    PI8042_KEYBOARD_INITIALIZATION_ROUTINE UpperInitializationRoutine;
-    PI8042_KEYBOARD_ISR UpperIsrHook;
-
-    //
-    // Write function from within KbFilter_IsrHook
-    //
-    IN PI8042_ISR_WRITE_PORT IsrWritePort;
-
-    //
-    // Queue the current packet (ie the one passed into KbFilter_IsrHook)
-    //
-    IN PI8042_QUEUE_PACKET QueueKeyboardPacket;
-
-    //
-    // Context for IsrWritePort, QueueKeyboardPacket
-    //
-    IN PVOID CallContext;
-
-    //
     // Cached Keyboard Attributes
     //
     KEYBOARD_ATTRIBUTES KeyboardAttributes;
+
+    //the sfn2 filtering context data per device
+    sfn2_dev_ctx_t sfn2_ctx;
 
 } DEVICE_EXTENSION, * PDEVICE_EXTENSION;
 
