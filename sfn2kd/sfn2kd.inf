@@ -1,0 +1,77 @@
+;
+; sfn2kd.inf
+;
+
+[Version]
+Signature="$WINDOWS NT$"
+Class=System ; TODO: specify appropriate Class
+ClassGuid={4d36e97d-e325-11ce-bfc1-08002be10318} ; TODO: specify appropriate ClassGuid
+Provider=%ManufacturerName%
+CatalogFile=sfn2kd.cat
+DriverVer= ; TODO: set DriverVer in stampinf property pages
+PnpLockdown=1
+
+[DestinationDirs]
+DefaultDestDir = 12
+sfn2kd_Device_CoInstaller_CopyFiles = 11
+
+[SourceDisksNames]
+1 = %DiskName%,,,""
+
+[SourceDisksFiles]
+sfn2kd.sys  = 1,,
+WdfCoInstaller$KMDFCOINSTALLERVERSION$.dll=1 ; make sure the number matches with SourceDisksNames
+
+;*****************************************
+; Install Section
+;*****************************************
+
+[Manufacturer]
+%ManufacturerName%=Standard,NT$ARCH$
+
+[Standard.NT$ARCH$]
+%sfn2kd.DeviceDesc%=sfn2kd_Device, Root\sfn2kd ; TODO: edit hw-id
+
+[sfn2kd_Device.NT]
+CopyFiles=Drivers_Dir
+
+[Drivers_Dir]
+sfn2kd.sys
+
+;-------------- Service installation
+[sfn2kd_Device.NT.Services]
+AddService = sfn2kd,%SPSVCINST_ASSOCSERVICE%, sfn2kd_Service_Inst
+
+; -------------- sfn2kd driver install sections
+[sfn2kd_Service_Inst]
+DisplayName    = %sfn2kd.SVCDESC%
+ServiceType    = 1               ; SERVICE_KERNEL_DRIVER
+StartType      = 3               ; SERVICE_DEMAND_START
+ErrorControl   = 1               ; SERVICE_ERROR_NORMAL
+ServiceBinary  = %12%\sfn2kd.sys
+
+;
+;--- sfn2kd_Device Coinstaller installation ------
+;
+
+[sfn2kd_Device.NT.CoInstallers]
+AddReg=sfn2kd_Device_CoInstaller_AddReg
+CopyFiles=sfn2kd_Device_CoInstaller_CopyFiles
+
+[sfn2kd_Device_CoInstaller_AddReg]
+HKR,,CoInstallers32,0x00010000, "WdfCoInstaller$KMDFCOINSTALLERVERSION$.dll,WdfCoInstaller"
+
+[sfn2kd_Device_CoInstaller_CopyFiles]
+WdfCoInstaller$KMDFCOINSTALLERVERSION$.dll
+
+[sfn2kd_Device.NT.Wdf]
+KmdfService =  sfn2kd, sfn2kd_wdfsect
+[sfn2kd_wdfsect]
+KmdfLibraryVersion = $KMDFVERSION$
+
+[Strings]
+SPSVCINST_ASSOCSERVICE= 0x00000002
+ManufacturerName="<Your manufacturer name>" ;TODO: Replace with your manufacturer name
+DiskName = "sfn2kd Installation Disk"
+sfn2kd.DeviceDesc = "sfn2kd Device"
+sfn2kd.SVCDESC = "sfn2kd Service"
