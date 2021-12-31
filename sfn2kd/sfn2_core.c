@@ -37,18 +37,28 @@ void sfn2_init_ctx(sfn2_dev_ctx_t *pctx)
     pctx->map[0x32].scode_tgt = 0x29; //, for ` in us layout. keys at the same positions for other layouts, and that is the beauty of scan code: location == code
 }
 
-/* this function decide what data is to be send to upper, or consumed by us*/
+#define sendkeys(pStart, pEnd) \
+    if ( pStart < pEnd ){ \
+        ul = 0; \
+        (*upper_cb)( \
+            upper_dev, \
+            pStart, \
+            pEnd, \
+            &ul); \
+        pStart += ul; \
+    }
 
-PKEYBOARD_INPUT_DATA sfn2_transform(sfn2_dev_ctx_t* ctx,
+/* this function decide what data is to be send to upper, or consumed by us*/
+void sfn2_process(sfn2_dev_ctx_t* ctx,
     IN PKEYBOARD_INPUT_DATA InputDataStart,
-    IN OUT PULONG InputDataToBeSent,
-    OUT PULONG InputDataConsumed
-)
+    IN PKEYBOARD_INPUT_DATA InputDataEnd,
+    OUT PULONG InputDataConsumed,
+    IN PDEVICE_OBJECT upper_dev,
+    IN PSERVICE_CALLBACK_ROUTINE upper_cb)
 {
-    ULONG ulsend;
     ULONG ul;
     PKEYBOARD_INPUT_DATA pd = InputDataStart, pstart = InputDataStart;
-    for (ULONG i = 0; i < *InputDataToBeSent; i++, pd++) {
+    for (; pd != InputDataEnd; pd++) {
         //std::cout << "codes " << h->vkCode << " state " << s_iState << std::endl;
         if ( pd->Flags & KEY_MAKE){
             //std::cout << "down" << std::endl;
@@ -60,14 +70,10 @@ PKEYBOARD_INPUT_DATA sfn2_transform(sfn2_dev_ctx_t* ctx,
  
             if (pd->MakeCode == ctx->act) { //act key down case
                 //need to send the unsent keys before the act key
-                ulsend = pd - pstart;
-                if (ulsend > 0) {
-                    ul = sendkeys(pstart, ulsend, upper_cb);
-                    pstart += ul;
-                    if (ul < ulsend) { //sent fail (partly) and we need to return
-                        *InputDataConsumed = pstart - InputDataStart;
-                        return;
-                    }
+                sendkeys(pstart, pd); //pstart will be updated
+                if (pstart != pd) { //sent fail (partly) and we need to return
+                    *InputDataConsumed = (ULONG)(pstart - InputDataStart);
+                    return;
                 }
                 pstart++; //skip the act key
                 continue;
@@ -87,33 +93,28 @@ PKEYBOARD_INPUT_DATA sfn2_transform(sfn2_dev_ctx_t* ctx,
         else if (pd->Flags == KEY_BREAK && pd->MakeCode < 255){ //we specially process only the "basic" scancodes as input, that is to keep the map small and fast
             if (pd->MakeCode == ctx->act) {
                 //act key up, send a tap and clean up state
-                ulsend = pd - pstart;
-                ul = 0;
+                PKEYBOARD_INPUT_DATA pend = pd;
                 if (ctx->state == 1) {
                     //send one extra act key down, and go on counting
                     pd->Flags &= ~KEY_BREAK;
                     pd->Flags |= ~KEY_MAKE;
-                    ulsend++;
+                    pend++;
                 }
-                if (ulsend > 0) {
-                    ul = sendkeys(pstart, ulsend, upper_cb);
-                    pstart += ul;
-                }
+                sendkeys(pstart, pend);
                 if (ctx->state == 1) {
                     pd->Flags &= ~KEY_MAKE;
-                    pd->Flags |= ~KEY_BREAK; //revert back the key
+                    pd->Flags |= ~KEY_BREAK; //revert back the key event, whether succeed or fail
                 }
-				if (ul < ulsend) {
+				if (pstart != pend) {
 					//sent fail (partly) and we need to return, the unsent key will be resent, this will cause resent of act key down next time, but 1) it very rarely happens, 2) resend doesn't break the system badly
-                    *InputDataConsumed = pstart - InputDataStart;
+                    *InputDataConsumed = (ULONG)(pstart - InputDataStart);
 					return;
 				}
-                if (ctx->state == 1) { //need to reuse the current act key event
-                    pstart -= 1;
-                }
-                else{ //need to skip the act event, since we did not really send it
-                    pstart += 1;
-                }
+                if (ctx->state == 1) //need to reuse the current act key event
+                    pstart--;
+                else //need to skip the act event, since we did not really send it
+                    pstart++;
+
                 //now continue the count, the release action will be sent after the count if necessary
                 ctx->state = 0;
             }
@@ -129,11 +130,7 @@ PKEYBOARD_INPUT_DATA sfn2_transform(sfn2_dev_ctx_t* ctx,
             //otherwise do nothing more than rutine process
         }
     }
-    ulsend = pd - pstart;
-    if (ulsend > 0) {
-        ul = sendkeys(pstart, ulsend, upper_cb);
-        pstart += ul;
-    }
-    *InputDataConsumed = pstart - InputDataStart;
+    sendkeys(pstart, pd);
+    *InputDataConsumed = (ULONG)(pstart - InputDataStart);
     //fail or not we just report the really consumed number
 }

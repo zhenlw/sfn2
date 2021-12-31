@@ -30,6 +30,9 @@
     <ClCompile Include="sfn2_core.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="rawpdo.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="kbfiltr.h">

@@ -384,7 +384,6 @@ Return Value:
 --*/
 {
     PDEVICE_EXTENSION               devExt;
-    PINTERNAL_I8042_HOOK_KEYBOARD   hookKeyboard = NULL;
     PCONNECT_DATA                   connectData = NULL;
     NTSTATUS                        status = STATUS_SUCCESS;
     size_t                          length;
@@ -611,11 +610,13 @@ Return Value:
 
     devExt = FilterGetData(hDevice);
 
-    (*(PSERVICE_CALLBACK_ROUTINE)(ULONG_PTR)devExt->UpperConnectData.ClassService)(
-        devExt->UpperConnectData.ClassDeviceObject,
+    sfn2_process(&devExt->sfn2_ctx,
         InputDataStart,
         InputDataEnd,
-        InputDataConsumed);
+        InputDataConsumed,
+        devExt->UpperConnectData.ClassDeviceObject,
+        (PSERVICE_CALLBACK_ROUTINE)(ULONG_PTR)devExt->UpperConnectData.ClassService
+        );
 }
 
 VOID
