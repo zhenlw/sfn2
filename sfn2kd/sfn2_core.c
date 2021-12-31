@@ -45,61 +45,95 @@ PKEYBOARD_INPUT_DATA sfn2_transform(sfn2_dev_ctx_t* ctx,
     OUT PULONG InputDataConsumed
 )
 {
-    for (ULONG i = 0; i < *InputDataToBeSent) {
+    ULONG ulsend;
+    ULONG ul;
+    PKEYBOARD_INPUT_DATA pd = InputDataStart, pstart = InputDataStart;
+    for (ULONG i = 0; i < *InputDataToBeSent; i++, pd++) {
         //std::cout << "codes " << h->vkCode << " state " << s_iState << std::endl;
-        if (InputDataStart->MakeCode == ctx->act) {
-            if (ctx->state == 0) {
-
-            }
-        }
-        if ( InputDataStart->Flags & KEY_MAKE){
+        if ( pd->Flags & KEY_MAKE){
             //std::cout << "down" << std::endl;
             if (ctx->state != 0) {
                 ctx->state = 2; //so we don't send the act key tap on up
             }
-            if (InputDataStart->Flags != KEY_MAKE) //we specially process only the "basic" scancodes as input, that is to keep the map small and fast
+            if (pd->Flags != KEY_MAKE || pd->MakeCode > 255 /*not possible I think*/) //we specially process only the "basic" scancodes as input, that is to keep the map small and fast
                 continue;
  
-            if (InputDataStart->MakeCode == ctx->act) {
-                if (i > 0) { //we need to ask the wrapper logic to send the keys before the mod first
-                    *InputDataToBeSent = i;
-                    return InputDataStart;
+            if (pd->MakeCode == ctx->act) { //act key down case
+                //need to send the unsent keys before the act key
+                ulsend = pd - pstart;
+                if (ulsend > 0) {
+                    ul = sendkeys(pstart, ulsend, upper_cb);
+                    pstart += ul;
+                    if (ul < ulsend) { //sent fail (partly) and we need to return
+                        *InputDataConsumed = pstart - InputDataStart;
+                        return;
+                    }
                 }
-                if (ctx->state < 2) ctx->state++; //on repeat the state will be 2 like with the "other keys presses case below, so we don't send the act key tap on up too, if this happens
-                *InputDataConsumed = 1;
-                return NULL;
+                pstart++; //skip the act key
+                continue;
             }
 
-            if (ctx->state != 0) {
-                //key down case in activated mode
-                ctx->state = 2; //so we don't send the act key tap on up
-                if (ctx->map[InputDataStart->MakeCode].scode_tgt > 0) {
+            USHORT us = pd->MakeCode;
+            if (ctx->state != 0 || ctx->map[us].in_mapped_state != 0) { //other generic (scode < 256 without e0) key down case in activated mode
+                if (ctx->map[pd->MakeCode].scode_tgt > 0) {
                     //std::cout << "vkt " << g_kmap[h->vkCode].vkt;
-                    USHORT us = InputDataStart->MakeCode;
-                    InputDataStart->MakeCode = ctx->map[us].scode_tgt;
-                    InputDataStart->Flags |= ctx->map[us].flag;
+                    pd->MakeCode = ctx->map[us].scode_tgt;
+                    pd->Flags |= ctx->map[us].flag;
                     ctx->map[us].in_mapped_state = 1;
                 }
             }
-            //all the cases are to be sent 
+            //all the cases reaches here are to be sent, whether modifed or not
         }
-        else {
-            if (h->vkCode == g_act_vk) {
+        else if (pd->Flags == KEY_BREAK && pd->MakeCode < 255){ //we specially process only the "basic" scancodes as input, that is to keep the map small and fast
+            if (pd->MakeCode == ctx->act) {
                 //act key up, send a tap and clean up state
-                if (s_iState == 1) {
-                    sendKey(g_act_vk, g_kmap[h->vkCode].scode, g_kmap[h->vkCode].flags);
-                    sendKey(g_act_vk, g_kmap[h->vkCode].scode, g_kmap[h->vkCode].flags | KEYEVENTF_KEYUP);
+                ulsend = pd - pstart;
+                ul = 0;
+                if (ctx->state == 1) {
+                    //send one extra act key down, and go on counting
+                    pd->Flags &= ~KEY_BREAK;
+                    pd->Flags |= ~KEY_MAKE;
+                    ulsend++;
                 }
-                s_iState = 0;
-                return 1;
+                if (ulsend > 0) {
+                    ul = sendkeys(pstart, ulsend, upper_cb);
+                    pstart += ul;
+                }
+                if (ctx->state == 1) {
+                    pd->Flags &= ~KEY_MAKE;
+                    pd->Flags |= ~KEY_BREAK; //revert back the key
+                }
+				if (ul < ulsend) {
+					//sent fail (partly) and we need to return, the unsent key will be resent, this will cause resent of act key down next time, but 1) it very rarely happens, 2) resend doesn't break the system badly
+                    *InputDataConsumed = pstart - InputDataStart;
+					return;
+				}
+                if (ctx->state == 1) { //need to reuse the current act key event
+                    pstart -= 1;
+                }
+                else{ //need to skip the act event, since we did not really send it
+                    pstart += 1;
+                }
+                //now continue the count, the release action will be sent after the count if necessary
+                ctx->state = 0;
             }
-            //whether in act mode, we still look the key up in the list to see what kc to send
-            if (g_kmap[h->vkCode].in_mapped_state) {
-                sendKey(g_kmap[h->vkCode].vkt, g_kmap[h->vkCode].scode, g_kmap[h->vkCode].flags | KEYEVENTF_KEYUP);
-                g_kmap[h->vkCode].in_mapped_state = 0;
-                return 1;
+            else {
+                //whether in act mode, we still look the key up in the list to see what kc to send
+                USHORT us = pd->MakeCode;
+                if (ctx->map[us].in_mapped_state) {
+                    pd->MakeCode = ctx->map[us].scode_tgt;
+                    pd->Flags |= ctx->map[us].flag;
+                    ctx->map[us].in_mapped_state = 0;
+                }
             }
             //otherwise do nothing more than rutine process
         }
     }
+    ulsend = pd - pstart;
+    if (ulsend > 0) {
+        ul = sendkeys(pstart, ulsend, upper_cb);
+        pstart += ul;
+    }
+    *InputDataConsumed = pstart - InputDataStart;
+    //fail or not we just report the really consumed number
 }
