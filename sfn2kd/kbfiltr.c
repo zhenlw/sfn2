@@ -448,6 +448,8 @@ Return Value:
 
 #pragma warning(default:4152)
 
+        sfn2_init_ctx(&devExt->sfn2_ctx);
+
         break;
 
         //

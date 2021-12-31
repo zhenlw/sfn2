@@ -39,7 +39,7 @@ void sfn2_init_ctx(sfn2_dev_ctx_t *pctx)
 
 #define sendkeys(pStart, pEnd) \
     if ( pStart < pEnd ){ \
-        ul = 0; \
+        ULONG ul = 0; \
         (*upper_cb)( \
             upper_dev, \
             pStart, \
@@ -56,13 +56,12 @@ void sfn2_process(sfn2_dev_ctx_t* ctx,
     IN PDEVICE_OBJECT upper_dev,
     IN PSERVICE_CALLBACK_ROUTINE upper_cb)
 {
-    ULONG ul;
     PKEYBOARD_INPUT_DATA pd = InputDataStart, pstart = InputDataStart;
     for (; pd != InputDataEnd; pd++) {
         //std::cout << "codes " << h->vkCode << " state " << s_iState << std::endl;
         if ( pd->Flags & KEY_MAKE){
             //std::cout << "down" << std::endl;
-            if (ctx->state != 0) {
+            if (ctx->state == 1) {
                 ctx->state = 2; //so we don't send the act key tap on up
             }
             if (pd->Flags != KEY_MAKE || pd->MakeCode > 255 /*not possible I think*/) //we specially process only the "basic" scancodes as input, that is to keep the map small and fast
@@ -76,6 +75,7 @@ void sfn2_process(sfn2_dev_ctx_t* ctx,
                     return;
                 }
                 pstart++; //skip the act key
+                ctx->state = 1;
                 continue;
             }
 
@@ -88,7 +88,7 @@ void sfn2_process(sfn2_dev_ctx_t* ctx,
                     ctx->map[us].in_mapped_state = 1;
                 }
             }
-            //all the cases reaches here are to be sent, whether modifed or not
+            //all the cases reaches here are to be sent as well, whether modifed or not
         }
         else if (pd->Flags == KEY_BREAK && pd->MakeCode < 255){ //we specially process only the "basic" scancodes as input, that is to keep the map small and fast
             if (pd->MakeCode == ctx->act) {
@@ -97,26 +97,26 @@ void sfn2_process(sfn2_dev_ctx_t* ctx,
                 if (ctx->state == 1) {
                     //send one extra act key down, and go on counting
                     pd->Flags &= ~KEY_BREAK;
-                    pd->Flags |= ~KEY_MAKE;
+                    pd->Flags |= KEY_MAKE;
                     pend++;
                 }
                 sendkeys(pstart, pend);
                 if (ctx->state == 1) {
                     pd->Flags &= ~KEY_MAKE;
-                    pd->Flags |= ~KEY_BREAK; //revert back the key event, whether succeed or fail
+                    pd->Flags |= KEY_BREAK; //revert back the key event, whether succeed or fail
                 }
 				if (pstart != pend) {
-					//sent fail (partly) and we need to return, the unsent key will be resent, this will cause resent of act key down next time, but 1) it very rarely happens, 2) resend doesn't break the system badly
+					//sent fail (partly) and we need to return, the unsent key will be resent, this will cause resent of act key down next time, but 1) it very rarely happens, 2) resend doesn't break the system
                     *InputDataConsumed = (ULONG)(pstart - InputDataStart);
 					return;
 				}
-                if (ctx->state == 1) //need to reuse the current act key event
+                if (ctx->state == 1) //need to send the current act key up event
                     pstart--;
-                else //need to skip the act event, since we did not really send it
+                else //need to skip the act event, since we did not really send it with the down flag
                     pstart++;
 
                 //now continue the count, the release action will be sent after the count if necessary
-                ctx->state = 0;
+                ctx->state = 0; //this may not be 100% percent accurate, since the later sending may fail, but it doesn't break the system, if in rare case it happens.
             }
             else {
                 //whether in act mode, we still look the key up in the list to see what kc to send

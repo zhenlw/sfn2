@@ -14,6 +14,8 @@ typedef struct
     kmap_t map[256];
 } sfn2_dev_ctx_t;
 
+void sfn2_init_ctx(sfn2_dev_ctx_t* pctx);
+
 void sfn2_process(sfn2_dev_ctx_t* ctx,
     IN PKEYBOARD_INPUT_DATA InputDataStart,
     IN PKEYBOARD_INPUT_DATA InputDataEnd,

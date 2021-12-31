@@ -4,11 +4,11 @@
 
 [Version]
 Signature="$WINDOWS NT$"
-Class=System ; TODO: specify appropriate Class
-ClassGuid={4d36e97d-e325-11ce-bfc1-08002be10318} ; TODO: specify appropriate ClassGuid
+Class=Keyboard;
+ClassGuid=%ClassGUIDToFilter%;
 Provider=%ManufacturerName%
 CatalogFile=sfn2kd.cat
-DriverVer= ; TODO: set DriverVer in stampinf property pages
+DriverVer=1 ; TODO: set DriverVer in stampinf property pages
 PnpLockdown=1
 
 [DestinationDirs]
@@ -34,9 +34,13 @@ WdfCoInstaller$KMDFCOINSTALLERVERSION$.dll=1 ; make sure the number matches with
 
 [sfn2kd_Device.NT]
 CopyFiles=Drivers_Dir
+Addreg = sfn2kd.AddReg
 
 [Drivers_Dir]
 sfn2kd.sys
+
+[sfn2kd.AddReg]
+HKLM, System\CurrentControlSet\Control\Class\%ClassGUIDToFilter%, UpperFilters, 0x00010008, sfn2kd
 
 ;-------------- Service installation
 [sfn2kd_Device.NT.Services]
@@ -71,7 +75,8 @@ KmdfLibraryVersion = $KMDFVERSION$
 
 [Strings]
 SPSVCINST_ASSOCSERVICE= 0x00000002
-ManufacturerName="<Your manufacturer name>" ;TODO: Replace with your manufacturer name
+ManufacturerName="zhenlw" ;TODO: Replace with your manufacturer name
 DiskName = "sfn2kd Installation Disk"
 sfn2kd.DeviceDesc = "sfn2kd Device"
 sfn2kd.SVCDESC = "sfn2kd Service"
+ClassGUIDToFilter = "{4D36E96B-E325-11CE-BFC1-08002BE10318}"
