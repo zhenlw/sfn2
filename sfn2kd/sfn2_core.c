@@ -35,6 +35,8 @@ void sfn2_init_ctx(sfn2_dev_ctx_t *pctx)
     pctx->map[0x15].scode_tgt = 0x01; //y for escape
     pctx->map[0x16].flag = KEY_E0;
     pctx->map[0x32].scode_tgt = 0x29; //, for ` in us layout. keys at the same positions for other layouts, and that is the beauty of scan code: location == code
+
+    pctx->map[0x30].scode_tgt = pctx->act;
 }
 
 #define sendkeys(pStart, pEnd) \
@@ -52,14 +54,14 @@ void sfn2_init_ctx(sfn2_dev_ctx_t *pctx)
 void sfn2_process(sfn2_dev_ctx_t* ctx,
     IN PKEYBOARD_INPUT_DATA InputDataStart,
     IN PKEYBOARD_INPUT_DATA InputDataEnd,
-    OUT PULONG InputDataConsumed,
+    IN OUT PULONG InputDataConsumed,
     IN PDEVICE_OBJECT upper_dev,
     IN PSERVICE_CALLBACK_ROUTINE upper_cb)
 {
     PKEYBOARD_INPUT_DATA pd = InputDataStart, pstart = InputDataStart;
     for (; pd != InputDataEnd; pd++) {
         //std::cout << "codes " << h->vkCode << " state " << s_iState << std::endl;
-        if ( pd->Flags & KEY_MAKE){
+        if ( ( pd->Flags & KEY_BREAK ) == KEY_MAKE){ //KEY_MAKE is 0, not really a bitmask, they co-use bit 0
             //std::cout << "down" << std::endl;
             if (ctx->state == 1) {
                 ctx->state = 2; //so we don't send the act key tap on up
@@ -97,12 +99,10 @@ void sfn2_process(sfn2_dev_ctx_t* ctx,
                 if (ctx->state == 1) {
                     //send one extra act key down, and go on counting
                     pd->Flags &= ~KEY_BREAK;
-                    pd->Flags |= KEY_MAKE;
                     pend++;
                 }
                 sendkeys(pstart, pend);
                 if (ctx->state == 1) {
-                    pd->Flags &= ~KEY_MAKE;
                     pd->Flags |= KEY_BREAK; //revert back the key event, whether succeed or fail
                 }
 				if (pstart != pend) {

@@ -4,16 +4,16 @@
 
 [Version]
 Signature="$WINDOWS NT$"
-Class=Keyboard;
-ClassGuid=%ClassGUIDToFilter%;
+Class=Keyboard
+ClassGuid={4D36E96B-E325-11CE-BFC1-08002BE10318}
 Provider=%ManufacturerName%
 CatalogFile=sfn2kd.cat
-DriverVer=1 ; TODO: set DriverVer in stampinf property pages
+DriverVer= ; TODO: set DriverVer in stampinf property pages
 PnpLockdown=1
 
 [DestinationDirs]
 DefaultDestDir = 12
-sfn2kd_Device_CoInstaller_CopyFiles = 11
+sfn2kd_CoInstaller_CopyFiles = 11
 
 [SourceDisksNames]
 1 = %DiskName%,,,""
@@ -30,45 +30,61 @@ WdfCoInstaller$KMDFCOINSTALLERVERSION$.dll=1 ; make sure the number matches with
 %ManufacturerName%=Standard,NT$ARCH$
 
 [Standard.NT$ARCH$]
-%sfn2kd.DeviceDesc%=sfn2kd_Device, Root\sfn2kd ; TODO: edit hw-id
+%sfn2kd.DeviceDesc%=sfn2kd, *PNP0303
 
-[sfn2kd_Device.NT]
+[sfn2kd.NT]
+; perform port related actions from keyboard.inf
+Include=keyboard.inf
+Needs=STANDARD_Inst
+
 CopyFiles=Drivers_Dir
-Addreg = sfn2kd.AddReg
 
 [Drivers_Dir]
 sfn2kd.sys
 
-[sfn2kd.AddReg]
-HKLM, System\CurrentControlSet\Control\Class\%ClassGUIDToFilter%, UpperFilters, 0x00010008, sfn2kd
 
 ;-------------- Service installation
-[sfn2kd_Device.NT.Services]
-AddService = sfn2kd,%SPSVCINST_ASSOCSERVICE%, sfn2kd_Service_Inst
+[sfn2kd.NT.Services]
+AddService = sfn2kd,, sfn2kd_Service_Inst
+; Install the port driver and mouclass from keyboard.inf
+Include=keyboard.inf
+Needs=STANDARD_Inst.Services
+
+[sfn2kd.NT.HW]
+; Add the device upper filter
+AddReg = sfn2kd.HW.AddReg
+
+; run the directives need by the port driver
+Include=keyboard.inf
+Needs=STANDARD_Inst.HW
+
+[sfn2kd.HW.AddReg]
+HKR,,"UpperFilters",0x00010000,"sfn2kd"
+
 
 ; -------------- sfn2kd driver install sections
 [sfn2kd_Service_Inst]
 DisplayName    = %sfn2kd.SVCDESC%
 ServiceType    = 1               ; SERVICE_KERNEL_DRIVER
 StartType      = 3               ; SERVICE_DEMAND_START
-ErrorControl   = 1               ; SERVICE_ERROR_NORMAL
+ErrorControl   = 0               ; SERVICE_ERROR_NORMAL
 ServiceBinary  = %12%\sfn2kd.sys
 
 ;
-;--- sfn2kd_Device Coinstaller installation ------
+;--- sfn2kd Coinstaller installation ------
 ;
 
-[sfn2kd_Device.NT.CoInstallers]
-AddReg=sfn2kd_Device_CoInstaller_AddReg
-CopyFiles=sfn2kd_Device_CoInstaller_CopyFiles
+[sfn2kd.NT.CoInstallers]
+AddReg=sfn2kd_CoInstaller_AddReg
+CopyFiles=sfn2kd_CoInstaller_CopyFiles
 
-[sfn2kd_Device_CoInstaller_AddReg]
+[sfn2kd_CoInstaller_AddReg]
 HKR,,CoInstallers32,0x00010000, "WdfCoInstaller$KMDFCOINSTALLERVERSION$.dll,WdfCoInstaller"
 
-[sfn2kd_Device_CoInstaller_CopyFiles]
+[sfn2kd_CoInstaller_CopyFiles]
 WdfCoInstaller$KMDFCOINSTALLERVERSION$.dll
 
-[sfn2kd_Device.NT.Wdf]
+[sfn2kd.NT.Wdf]
 KmdfService =  sfn2kd, sfn2kd_wdfsect
 [sfn2kd_wdfsect]
 KmdfLibraryVersion = $KMDFVERSION$
@@ -77,6 +93,5 @@ KmdfLibraryVersion = $KMDFVERSION$
 SPSVCINST_ASSOCSERVICE= 0x00000002
 ManufacturerName="zhenlw" ;TODO: Replace with your manufacturer name
 DiskName = "sfn2kd Installation Disk"
-sfn2kd.DeviceDesc = "sfn2kd Device"
+sfn2kd.DeviceDesc = "keyboard with sfn2kd filter"
 sfn2kd.SVCDESC = "sfn2kd Service"
-ClassGUIDToFilter = "{4D36E96B-E325-11CE-BFC1-08002BE10318}"
