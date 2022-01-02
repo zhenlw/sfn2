@@ -11,6 +11,8 @@ typedef struct
 {
     USHORT state; //0-normal, 1-modified
     USHORT act; //scode for our activation key, should be space normally
+    ULONG64 ticks_timeout;
+    ULONG64 ticks_act_down;
     kmap_t map[256];
 } sfn2_dev_ctx_t;
 

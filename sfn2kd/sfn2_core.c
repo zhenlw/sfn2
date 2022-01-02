@@ -5,6 +5,7 @@ void sfn2_init_ctx(sfn2_dev_ctx_t *pctx)
 {
     RtlZeroMemory(pctx, sizeof(*pctx));
     //pctx->state=0;
+    pctx->ticks_timeout = 5000000ULL / KeQueryTimeIncrement(); //so 5000,000 * 100ns, equals to 500ms
     pctx->act = 0x39;
     pctx->map[0x39].scode_tgt = 0x39; //space
 
@@ -60,11 +61,9 @@ void sfn2_process(sfn2_dev_ctx_t* ctx,
 {
     PKEYBOARD_INPUT_DATA pd = InputDataStart, pstart = InputDataStart;
     for (; pd != InputDataEnd; pd++) {
-        //std::cout << "codes " << h->vkCode << " state " << s_iState << std::endl;
         if ( ( pd->Flags & KEY_BREAK ) == KEY_MAKE){ //KEY_MAKE is 0, not really a bitmask, they co-use bit 0
-            //std::cout << "down" << std::endl;
             if (ctx->state == 1) {
-                ctx->state = 2; //so we don't send the act key tap on up
+                ctx->state = 2; //so we don't send the act key tap on up, any key down event will trigger this
             }
             if (pd->Flags != KEY_MAKE || pd->MakeCode > 255 /*not possible I think*/) //we specially process only the "basic" scancodes as input, that is to keep the map small and fast
                 continue;
@@ -77,14 +76,16 @@ void sfn2_process(sfn2_dev_ctx_t* ctx,
                     return;
                 }
                 pstart++; //skip the act key
-                ctx->state = 1;
+                if (ctx->state == 0) {
+                    ctx->state = 1;
+                    KeQueryTickCount(&(ctx->ticks_act_down));
+                }
                 continue;
             }
 
             USHORT us = pd->MakeCode;
             if (ctx->state != 0 || ctx->map[us].in_mapped_state != 0) { //other generic (scode < 256 without e0) key down case in activated mode
                 if (ctx->map[pd->MakeCode].scode_tgt > 0) {
-                    //std::cout << "vkt " << g_kmap[h->vkCode].vkt;
                     pd->MakeCode = ctx->map[us].scode_tgt;
                     pd->Flags |= ctx->map[us].flag;
                     ctx->map[us].in_mapped_state = 1;
@@ -96,6 +97,13 @@ void sfn2_process(sfn2_dev_ctx_t* ctx,
             if (pd->MakeCode == ctx->act) {
                 //act key up, send a tap and clean up state
                 PKEYBOARD_INPUT_DATA pend = pd;
+                if (ctx->state == 1) { //do a timeout logic first before deciding whether to send act key tap
+                    ULONG64 time1;
+                    KeQueryTickCount(&time1);
+                    if (time1 - ctx->ticks_act_down > ctx->ticks_timeout) {
+                        ctx->state = 2;
+                    }
+                }
                 if (ctx->state == 1) {
                     //send one extra act key down, and go on counting
                     pd->Flags &= ~KEY_BREAK;
@@ -119,7 +127,7 @@ void sfn2_process(sfn2_dev_ctx_t* ctx,
                 ctx->state = 0; //this may not be 100% percent accurate, since the later sending may fail, but it doesn't break the system, if in rare case it happens.
             }
             else {
-                //whether in act mode, we still look the key up in the list to see what kc to send
+                //whether in act mode, we only honor the key in-map state to see what kc to send
                 USHORT us = pd->MakeCode;
                 if (ctx->map[us].in_mapped_state) {
                     pd->MakeCode = ctx->map[us].scode_tgt;

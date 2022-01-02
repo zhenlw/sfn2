@@ -30,13 +30,19 @@ WdfCoInstaller$KMDFCOINSTALLERVERSION$.dll=1 ; make sure the number matches with
 %ManufacturerName%=Standard,NT$ARCH$
 
 [Standard.NT$ARCH$]
-%sfn2kd.DeviceDesc%=sfn2kd, *PNP0303
+%sfn2kd_ps2std.DeviceDesc%=sfn2kd_ps2std, *PNP0303
+%sfn2kd_hid.DeviceDesc%=sfn2kd_hid, HID_DEVICE_SYSTEM_KEYBOARD
 
-[sfn2kd.NT]
+[sfn2kd_ps2std.NT]
 ; perform port related actions from keyboard.inf
 Include=keyboard.inf
 Needs=STANDARD_Inst
+CopyFiles=Drivers_Dir
 
+[sfn2kd_hid.NT]
+; perform port related actions from keyboard.inf
+Include=keyboard.inf
+Needs=HID_Keyboard_Inst
 CopyFiles=Drivers_Dir
 
 [Drivers_Dir]
@@ -44,19 +50,31 @@ sfn2kd.sys
 
 
 ;-------------- Service installation
-[sfn2kd.NT.Services]
-AddService = sfn2kd,, sfn2kd_Service_Inst
+[sfn2kd_ps2std.NT.Services]
+AddService = sfn2kd_ps2std,, sfn2kd_Service_Inst
 ; Install the port driver and mouclass from keyboard.inf
 Include=keyboard.inf
 Needs=STANDARD_Inst.Services
 
-[sfn2kd.NT.HW]
+[sfn2kd_hid.NT.Services]
+AddService = sfn2kd_hid,, sfn2kd_Service_Inst
+; Install the port driver and mouclass from keyboard.inf
+Include=keyboard.inf
+Needs=HID_Keyboard_Inst.NT.Services
+
+[sfn2kd_ps2std.NT.HW]
 ; Add the device upper filter
 AddReg = sfn2kd.HW.AddReg
-
 ; run the directives need by the port driver
 Include=keyboard.inf
 Needs=STANDARD_Inst.HW
+
+[sfn2kd_hid.NT.HW]
+; Add the device upper filter
+AddReg = sfn2kd.HW.AddReg
+; run the directives need by the port driver
+Include=keyboard.inf
+Needs=HID_Keyboard_Inst.NT.HW
 
 [sfn2kd.HW.AddReg]
 HKR,,"UpperFilters",0x00010000,"sfn2kd"
@@ -71,7 +89,7 @@ ErrorControl   = 0               ; SERVICE_ERROR_NORMAL
 ServiceBinary  = %12%\sfn2kd.sys
 
 ;
-;--- sfn2kd Coinstaller installation ------
+;--- sfn2kd Coinstaller installation ------ LIKEly the below sections are not used, remove later
 ;
 
 [sfn2kd.NT.CoInstallers]
@@ -93,5 +111,6 @@ KmdfLibraryVersion = $KMDFVERSION$
 SPSVCINST_ASSOCSERVICE= 0x00000002
 ManufacturerName="zhenlw" ;TODO: Replace with your manufacturer name
 DiskName = "sfn2kd Installation Disk"
-sfn2kd.DeviceDesc = "keyboard with sfn2kd filter"
+sfn2kd_ps2std.DeviceDesc = "PS2 keyboard with sfn2kd filter"
+sfn2kd_hid.DeviceDesc = "HID keyboard with sfn2kd filter"
 sfn2kd.SVCDESC = "sfn2kd Service"
