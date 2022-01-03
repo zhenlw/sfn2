@@ -106,6 +106,8 @@ Return Value:
         DebugPrint(("WdfDriverCreate failed with status 0x%x\n", status));
     }
 
+    sfn2_init_static();
+
     return status;
 }
 
@@ -448,7 +450,7 @@ Return Value:
 
 #pragma warning(default:4152)
 
-        sfn2_init_ctx(&devExt->sfn2_ctx);
+        sfn2_init_ctx(&devExt->sfn2_ctx, &devExt->UpperConnectData);
 
         break;
 
@@ -615,9 +617,7 @@ Return Value:
     sfn2_process(&devExt->sfn2_ctx,
         InputDataStart,
         InputDataEnd,
-        InputDataConsumed,
-        devExt->UpperConnectData.ClassDeviceObject,
-        (PSERVICE_CALLBACK_ROUTINE)(ULONG_PTR)devExt->UpperConnectData.ClassService
+        InputDataConsumed
         );
 }
 
